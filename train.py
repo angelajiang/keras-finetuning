@@ -44,6 +44,9 @@ X_test  = X[train_size:]
 y_test  = y[train_size:]
 Y_test = np_utils.to_categorical(y_test, nb_classes)
 
+X_train = [x.reshape(224, 224, 3) for x in X_train]
+X_test = [x.reshape(224, 224, 3) for x in X_test]
+
 if heavy_augmentation:
     datagen = ImageDataGenerator(
         featurewise_center=False,
@@ -123,7 +126,11 @@ model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=["ac
 
 # train the model on the new data for a few epochs
 
-print "training the newly added dense layers"
+datagen.flow(X_train, Y_train, batch_size=batch_size, shuffle=True)
+
+print type(np.array(X_train))
+X_train = np.array(X_train)
+X_test = np.array(X_test)
 
 model.fit_generator(datagen.flow(X_train, Y_train, batch_size=batch_size, shuffle=True),
             samples_per_epoch=X_train.shape[0],
