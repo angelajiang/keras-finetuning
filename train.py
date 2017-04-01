@@ -1,7 +1,8 @@
-import sys
 import json
-
 import numpy as np
+import os.path
+import sys
+
 from collections import defaultdict
 
 # It's very important to put this import before keras,
@@ -20,12 +21,12 @@ import net
 np.random.seed(1337)
 
 n = 224
-batch_size = 128
+batch_size = 64
 nb_epoch = 20
 nb_phase_two_epoch = 20
 # Use heavy augmentation if you plan to use the model with the
 # accompanying webcam.py app, because webcam data is quite different from photos.
-heavy_augmentation = True
+heavy_augmentation = False
 
 data_directory, model_file_prefix = sys.argv[1:]
 
@@ -33,7 +34,6 @@ print "loading dataset"
 
 X, y, tags = dataset.dataset(data_directory, n)
 nb_classes = len(tags)
-
 
 sample_count = len(y)
 train_size = sample_count * 4 // 5
@@ -79,6 +79,7 @@ else:
 datagen.fit(X_train)
 
 def evaluate(model, vis_filename=None):
+    print "Predicting..."
     Y_pred = model.predict(X_test, batch_size=batch_size)
     y_pred = np.argmax(Y_pred, axis=1)
 
@@ -119,29 +120,36 @@ def evaluate(model, vis_filename=None):
         vis_image[:, ::image_size * bucket_size] = 0
         scipy.misc.imsave(vis_filename, vis_image)
 
-print "loading original inception model"
-
-model = net.build_model(nb_classes)
-model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=["accuracy"])
-
-# train the model on the new data for a few epochs
-
-datagen.flow(X_train, Y_train, batch_size=batch_size, shuffle=True)
-
-print type(np.array(X_train))
 X_train = np.array(X_train)
 X_test = np.array(X_test)
 
-model.fit_generator(datagen.flow(X_train, Y_train, batch_size=batch_size, shuffle=True),
-            samples_per_epoch=X_train.shape[0],
-            nb_epoch=nb_epoch,
-            validation_data=datagen.flow(X_test, Y_test, batch_size=batch_size),
-            nb_val_samples=X_test.shape[0],
-            )
 
-evaluate(model, "000.png")
+model_file = model_file_prefix + ".h5"
+if (not os.path.isfile(model_file)):
+    print "Cached model file does not exist"
 
-net.save(model, tags, model_file_prefix)
+    print "Loading original inception model"
+    model = net.build_model(nb_classes)
+    model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=["accuracy"])
+
+    # train the model on the new data for a few epochs
+
+    model.fit_generator(datagen.flow(X_train, Y_train, batch_size=batch_size, shuffle=True),
+                samples_per_epoch=X_train.shape[0],
+                nb_epoch=nb_epoch,
+                validation_data=datagen.flow(X_test, Y_test, batch_size=batch_size),
+                nb_val_samples=X_test.shape[0]
+                )
+
+    print "evaluating model"
+    evaluate(model, "000.png")
+
+    print "saving net"
+    net.save(model, tags, model_file_prefix)
+
+else:
+    print "Load model from cached files"
+    model, tags = net.load(model_file_prefix)
 
 # at this point, the top layers are well trained and we can start fine-tuning
 # convolutional layers from inception V3. We will freeze the bottom N layers
@@ -149,13 +157,18 @@ net.save(model, tags, model_file_prefix)
 
 # we chose to train the top 2 inception blocks, i.e. we will freeze
 # the first 172 layers and unfreeze the rest:
-for layer in model.layers[:172]:
+num_layers = len(model.layers)
+num_train = 5
+num_frozen = num_layers - num_train
+print "Num_layers:", num_layers, " num frozen:", num_frozen
+for layer in model.layers[:num_frozen]:
    layer.trainable = False
-for layer in model.layers[172:]:
+for layer in model.layers[num_frozen:]:
    layer.trainable = True
 
 # we need to recompile the model for these modifications to take effect
 # we use SGD with a low learning rate
+print "compile model"
 model.compile(optimizer=SGD(lr=0.0001, momentum=0.9), loss='categorical_crossentropy', metrics=["accuracy"])
 
 # we train our model again (this time fine-tuning the top 2 inception blocks
@@ -163,15 +176,18 @@ model.compile(optimizer=SGD(lr=0.0001, momentum=0.9), loss='categorical_crossent
 
 print "fine-tuning top 2 inception blocks alongside the top dense layers"
 
-for i in range(1,11):
-    print "mega-epoch %d/10" % i
+final_model_file_prefix = model_file_prefix + "_final"
+
+num_mega_epochs = 2
+for i in range(1, num_mega_epochs + 1):
+    print "mega-epoch %d/%d" % (i, num_mega_epochs)
     model.fit_generator(datagen.flow(X_train, Y_train, batch_size=batch_size, shuffle=True),
             samples_per_epoch=X_train.shape[0],
             nb_epoch=nb_phase_two_epoch,
             validation_data=datagen.flow(X_test, Y_test, batch_size=batch_size),
-            nb_val_samples=X_test.shape[0],
+            nb_val_samples=X_test.shape[0]
             )
 
     evaluate(model, str(i).zfill(3)+".png")
 
-    net.save(model, tags, model_file_prefix)
+    net.save(model, tags, final_model_file_prefix)
