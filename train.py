@@ -22,8 +22,8 @@ np.random.seed(1337)
 
 n = 224
 batch_size = 64
-nb_epoch = 20
-nb_phase_two_epoch = 20
+nb_epoch = 40
+nb_phase_two_epoch = 40
 # Use heavy augmentation if you plan to use the model with the
 # accompanying webcam.py app, because webcam data is quite different from photos.
 heavy_augmentation = False
@@ -79,7 +79,6 @@ else:
 datagen.fit(X_train)
 
 def evaluate(model, vis_filename=None):
-    print "Predicting..."
     Y_pred = model.predict(X_test, batch_size=batch_size)
     y_pred = np.argmax(Y_pred, axis=1)
 
@@ -119,16 +118,15 @@ def evaluate(model, vis_filename=None):
         vis_image[::image_size * bucket_size, :] = 0
         vis_image[:, ::image_size * bucket_size] = 0
         scipy.misc.imsave(vis_filename, vis_image)
+    return accuracy
 
 X_train = np.array(X_train)
 X_test = np.array(X_test)
-
 
 model_file = model_file_prefix + ".h5"
 if (not os.path.isfile(model_file)):
     print "Cached model file does not exist"
 
-    print "Loading original inception model"
     model = net.build_model(nb_classes)
     model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=["accuracy"])
 
@@ -141,15 +139,15 @@ if (not os.path.isfile(model_file)):
                 nb_val_samples=X_test.shape[0]
                 )
 
-    print "evaluating model"
     evaluate(model, "000.png")
 
-    print "saving net"
     net.save(model, tags, model_file_prefix)
 
 else:
     print "Load model from cached files"
     model, tags = net.load(model_file_prefix)
+
+'''
 
 # at this point, the top layers are well trained and we can start fine-tuning
 # convolutional layers from inception V3. We will freeze the bottom N layers
@@ -188,6 +186,9 @@ for i in range(1, num_mega_epochs + 1):
             nb_val_samples=X_test.shape[0]
             )
 
-    evaluate(model, str(i).zfill(3)+".png")
+    accuracy = evaluate(model, str(i).zfill(3)+".png")
 
     net.save(model, tags, final_model_file_prefix)
+
+
+'''
