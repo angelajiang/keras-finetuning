@@ -218,6 +218,7 @@ class FineTuner:
 
             net.save(self.model, self.tags, final_model_file_prefix)
 
+        print "[finetune] accuracy:" , accuracy
         return accuracy
 
     def print_config(self):

@@ -1,16 +1,20 @@
 import FineTuner as ft
 import sys
 
-def accuracy_per_layer(config_file, dataset_dir, model_prefix, max_layers, layers_stride):
+def accuracy_per_layer(config_file, dataset_dir, output_file, model_prefix, max_layers, layers_stride):
     ft_obj = ft.FineTuner(config_file, dataset_dir, model_prefix)
+    f = open(output_file, 'w')
     for num_training_layers in range(0, max_layers, layers_stride):
         acc = ft_obj.finetune(num_training_layers)
-        print num_training_layers, acc
+        acc = str.format("{0:.4f}", acc)
+        line = str(num_training_layers) + "," + str(acc) + "\n"
+        print "[RESULT] Num fine-tuned layers: ", num_training_layers, " accuracy: ", acc
+        f.write(line)
     ft_obj.print_config()
 
 if __name__ == "__main__":
-    config_file, dataset_dir, model_prefix, max_layers, layers_stride = sys.argv[1:]
+    config_file, dataset_dir, output_file, model_prefix, max_layers, layers_stride = sys.argv[1:]
     max_layers = int(max_layers)
     layers_stride = int(layers_stride)
-    accuracy_per_layer(config_file, dataset_dir, model_prefix, max_layers, layers_stride)
+    accuracy_per_layer(config_file, dataset_dir, output_file, model_prefix, max_layers, layers_stride)
 
