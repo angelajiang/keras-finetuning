@@ -3,8 +3,9 @@ import sys
 
 def accuracy_per_layer(config_file, dataset_dir, output_file, model_prefix, max_layers, layers_stride):
     ft_obj = ft.FineTuner(config_file, dataset_dir, model_prefix)
-    f = open(output_file, 'w')
-    for num_training_layers in range(0, max_layers, layers_stride):
+    f = open(output_file, 'w', 0)
+    for num_training_layers in range(layers_stride, max_layers + layers_stride, layers_stride):
+        print "[experiments] ================= Finetunning", num_training_layers, "layers ================= "
         acc = ft_obj.finetune(num_training_layers)
         acc = str.format("{0:.4f}", acc)
         line = str(num_training_layers) + "," + str(acc) + "\n"
