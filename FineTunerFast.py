@@ -62,11 +62,43 @@ class FineTunerFast:
         X_train = [x.reshape(224, 224, 3) for x in X_train]
         X_test = [x.reshape(224, 224, 3) for x in X_test]
 
+        if self.heavy_augmentation:
+            datagen = ImageDataGenerator(
+                featurewise_center=False,
+                samplewise_center=False,
+                featurewise_std_normalization=False,
+                samplewise_std_normalization=False,
+                zca_whitening=False,
+                rotation_range=45,
+                width_shift_range=0.25,
+                height_shift_range=0.25,
+                horizontal_flip=True,
+                vertical_flip=False,
+                zoom_range=0.5,
+                channel_shift_range=0.5,
+                fill_mode='nearest')
+        else:
+            datagen = ImageDataGenerator(
+                featurewise_center=False,
+                samplewise_center=False,
+                featurewise_std_normalization=False,
+                samplewise_std_normalization=False,
+                zca_whitening=False,
+                rotation_range=0,
+                width_shift_range=0.125,
+                height_shift_range=0.125,
+                horizontal_flip=True,
+                vertical_flip=False,
+                fill_mode='nearest')
+
+        datagen.fit(X_train)
+
         self.X_train = np.array(X_train)
         self.X_test = np.array(X_test)
         self.Y_train = Y_train
         self.Y_test = Y_test
         self.y_test = y_test
+        self.datagen = datagen
 
     def init_model(self):
         model_file = self.model_file_prefix + ".h5"
@@ -142,22 +174,21 @@ class FineTunerFast:
         # we train our model again (this time fine-tuning the top 2 inception blocks
         # alongside the top Dense layers
 
-        print "fine-tuning top 2 inception blocks alongside the top dense layers"
-
-        final_model_file_prefix = self.model_file_prefix + "_final"
 
         for i in range(1, self.num_mega_epochs + 1):
             print "mega-epoch %d/%d" % (i, self.num_mega_epochs)
 
              #   # train the model on the new data for a few epochs
             loss = self.model.fit(self.X_train, self.Y_train,
+                                  batch_size=self.batch_size,
                                   nb_epoch=self.nb_epoch,
-                                  validation_data=(self.X_test, self.Y_test),
                                   shuffle=False)
 
             accuracy = self.evaluate(self.model)
 
-            #net.save(self.model, self.tags, final_model_file_prefix)
+        final_model_file_prefix = self.model_file_prefix + "_final"
+        net.save(self.model, self.tags, final_model_file_prefix)
+        print "[finetune] Saving model to", final_model_file_prefix
 
         print "[finetune] accuracy:" , accuracy
         return accuracy
