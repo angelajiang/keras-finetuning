@@ -15,7 +15,7 @@ from collections import defaultdict
 import scipy.misc
 
 from keras.preprocessing.image import ImageDataGenerator
-from keras.optimizers import SGD
+from keras.optimizers import SGD, Adam, Nadam, RMSprop, Adamax
 from keras import backend as K
 from keras.utils import np_utils
 
@@ -36,9 +36,25 @@ class FineTunerFast:
         self.n = int(config_parserr.get('finetune-config', 'n'))
         self.batch_size = int(config_parserr.get('finetune-config', 'batch_size'))
         self.nb_epoch = int(config_parserr.get('finetune-config', 'nb_epoch'))
-        self.nb_phase_two_epoch = int(config_parserr.get('finetune-config', 'nb_phase_two_epoch'))
         self.num_mega_epochs = int(config_parserr.get('finetune-config', 'num_mega_epochs'))
         self.heavy_augmentation = bool(config_parserr.get('finetune-config', 'heavy_augmentation'))
+        optimizer_name = str(config_parserr.get('finetune-config', 'optimizer'))
+        decay = float(config_parserr.get('finetune-config', 'decay'))
+        lr = float(config_parserr.get('finetune-config', 'learning-rate'))                          # Should be low for finetuning
+        
+        if optimizer_name == "adam":
+            self.optimizer = Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=decay)
+        elif optimizer_name == "adamax":
+            self.optimizer = Adamax(lr=l4, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=decay)
+        elif optimizer_name == "nadam":
+            self.optimizer = Nadam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, schedule_decay=decay)
+        elif optimizer_name == "rmsprop":
+            self.optimizer = RMSprop(lr=lr, rho=0.9, epsilon=1e-08, decay=decay)
+        elif optimizer_name == "sgd":
+            self.optimizer = SGD(lr=lr, momentum=0.0, decay=decay, nesterov=False)
+        else:
+            print "[ERROR] Didn't recognize optimizer", optimizer_name
+	    sys.exit(-1)
 
         self.init_dataset()     # sets self.datagen, self.X_train, self.Y_train, self.X_test, self.Y_test
         self.init_model()       # sets self.model, self.tags
@@ -103,24 +119,8 @@ class FineTunerFast:
     def init_model(self):
         model_file = self.model_file_prefix + ".h5"
         if (not os.path.isfile(model_file)):
-            print "Cached model file does not exist"
-
-            print "Loading original inception model"
-            model = net.build_model(self.nb_classes)
-            model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=["accuracy"])
-
-            model.fit_generator(self.datagen.flow(self.X_train, self.Y_train, batch_size=self.batch_size, shuffle=False),
-                        samples_per_epoch=self.X_train.shape[0],
-                        nb_epoch=self.nb_epoch,
-                        validation_data=self.datagen.flow(self.X_test, self.Y_test, batch_size=self.batch_size, shuffle=False),
-                        nb_val_samples=self.X_test.shape[0]
-                        )
-
-            print "evaluating model"
-            self.evaluate(model)
-
-            print "saving net"
-            net.save(model, tags, self.model_file_prefix)
+            print "[ERROR] Cached model file does not exist"
+            sys.exit(-1)
 
         else:
             print "Load model from cached files"
@@ -169,7 +169,7 @@ class FineTunerFast:
 
         # we need to recompile the model for these modifications to take effect
         # we use SGD with a low learning rate
-        self.model.compile(optimizer=SGD(lr=0.0001, momentum=0.9), loss='categorical_crossentropy', metrics=["accuracy"])
+        self.model.compile(optimizer=self.optimizer, loss='categorical_crossentropy', metrics=["accuracy"])
 
         # we train our model again (this time fine-tuning the top 2 inception blocks
         # alongside the top Dense layers
