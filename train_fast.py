@@ -11,7 +11,7 @@ from collections import defaultdict
 import scipy.misc
 
 from keras.preprocessing.image import ImageDataGenerator
-from keras.optimizers import SGD
+from keras.optimizers import SGD, Adam, RMSprop
 from keras import backend as K
 from keras.utils import np_utils
 
@@ -23,8 +23,16 @@ np.random.seed(1337)
 n = 224
 batch_size = 64
 
-data_directory, model_file_prefix, nb_epoch = sys.argv[1:]
+data_directory, model_file_prefix, outfile, nb_epoch, nb_epoch_batch_size, optimizer_name, decay = sys.argv[1:]
 nb_epoch = int(nb_epoch)
+nb_epoch_batch_size = int(nb_epoch_batch_size)
+decay = float(decay)
+model_file_prefix = model_file_prefix + "-nb" + str(nb_epoch) + "-" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay)
+outfile = outfile + "-nb" + str(nb_epoch) + "-" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay)
+if optimizer_name == "adam":
+    optimizer = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=decay)
+elif optimizer_name == "rmsprop":
+    optimizer = RMSprop(lr=0.001, rho=0.9, epsilon=1e-08, decay=decay)
 
 print "loading dataset"
 
@@ -65,25 +73,36 @@ def evaluate(model):
 X_train = np.array(X_train)
 X_test = np.array(X_test)
 
+f = open(outfile, 'w', 0)
 model_file = model_file_prefix + ".h5"
 if (not os.path.isfile(model_file)):
     print "Cached model file does not exist"
 
     model = net.build_model(nb_classes)
-    model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=["accuracy"])
+    model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=["accuracy"])
 
     # train the model on the new data for a few epochs
 
-    loss = model.fit(X_train, Y_train,
-                     initial_epoch=0,
-                     batch_size=batch_size,
-                     nb_epoch=nb_epoch,
-                     validation_data=(X_test, Y_test),
-                     shuffle=False)
+    num_training_batchs = nb_epoch // nb_epoch_batch_size
 
-    evaluate(model)
+    for i in range(num_training_batchs):
+        loss = model.fit(X_train, Y_train,
+                         initial_epoch=0,
+                         batch_size=batch_size,
+                         nb_epoch=nb_epoch_batch_size,
+                         validation_data=(X_test, Y_test),
+                         shuffle=False)
 
-    net.save(model, tags, model_file_prefix)
+        acc = evaluate(model)
+        iters = i * nb_epoch_batch_size
+        line = str(iters) + "," + str(acc) + "\n"
+        print line
+        f.write(line)
+        f.flush()
+
+    model_file_name = model_file_prefix + "-nb" + str(nb_epoch) + "-" + optimizer_name
+
+    net.save(model, tags, model_file_name)
 
 else:
     print "Model is already cached"
