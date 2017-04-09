@@ -37,7 +37,8 @@ class FineTunerFast:
         self.batch_size = int(config_parserr.get('finetune-config', 'batch_size'))
         self.nb_epoch = int(config_parserr.get('finetune-config', 'nb_epoch'))
         self.num_mega_epochs = int(config_parserr.get('finetune-config', 'num_mega_epochs'))
-        self.heavy_augmentation = bool(config_parserr.get('finetune-config', 'heavy_augmentation'))
+        self.data_augmentation = bool(int(config_parserr.get('finetune-config', 'data_augmentation')))
+        self.heavy_augmentation = bool(int(config_parserr.get('finetune-config', 'heavy_augmentation')))
         optimizer_name = str(config_parserr.get('finetune-config', 'optimizer'))
         decay = float(config_parserr.get('finetune-config', 'decay'))
         lr = float(config_parserr.get('finetune-config', 'learning-rate'))                          # Should be low for finetuning
@@ -64,6 +65,7 @@ class FineTunerFast:
     def init_dataset(self):
 
         X, y, tags = dataset.dataset(self.data_directory, self.n)
+        self.tags = tags
         self.nb_classes = len(tags)
 
         sample_count = len(y)
@@ -119,15 +121,16 @@ class FineTunerFast:
     def init_model(self):
         model_file = self.model_file_prefix + ".h5"
         if (not os.path.isfile(model_file)):
-            print "[ERROR] Cached model file does not exist"
-            sys.exit(-1)
+            print "[WARNING] Generating new model"
+            model = net.build_model(self.nb_classes)
 
         else:
             print "Load model from cached files"
             model, tags = net.load(self.model_file_prefix)
 
+        model.compile(optimizer=self.optimizer, loss='categorical_crossentropy', metrics=["accuracy"])
+        net.save(model, self.tags, self.model_file_prefix)
         self.model = model
-        self.tags = tags
 
     def evaluate(self, model):
         Y_pred = model.predict(self.X_test, batch_size=self.batch_size)
@@ -174,17 +177,26 @@ class FineTunerFast:
         # we train our model again (this time fine-tuning the top 2 inception blocks
         # alongside the top Dense layers
 
+        if self.data_augmentation:
+            for i in range(1, self.num_mega_epochs + 1):
+                print "mega-epoch %d/%d" % (i, self.num_mega_epochs)
+                self.model.fit_generator(self.datagen.flow(self.X_train, self.Y_train, batch_size=self.batch_size, shuffle=False),
+                        samples_per_epoch=self.X_train.shape[1],
+                        nb_epoch=self.nb_epoch,
+                        validation_data=self.datagen.flow(self.X_test, self.Y_test, batch_size=self.batch_size),
+                        nb_val_samples=self.X_test.shape[0]
+                        )
+        else:
+            for i in range(1, self.num_mega_epochs + 1):
+                print "mega-epoch %d/%d" % (i, self.num_mega_epochs)
 
-        for i in range(1, self.num_mega_epochs + 1):
-            print "mega-epoch %d/%d" % (i, self.num_mega_epochs)
+                 #   # train the model on the new data for a few epochs
+                loss = self.model.fit(self.X_train, self.Y_train,
+                                      batch_size=self.batch_size,
+                                      nb_epoch=self.nb_epoch,
+                                      shuffle=False)
 
-             #   # train the model on the new data for a few epochs
-            loss = self.model.fit(self.X_train, self.Y_train,
-                                  batch_size=self.batch_size,
-                                  nb_epoch=self.nb_epoch,
-                                  shuffle=False)
-
-            accuracy = self.evaluate(self.model)
+        accuracy = self.evaluate(self.model)
 
         final_model_file_prefix = self.model_file_prefix + "_final"
         net.save(self.model, self.tags, final_model_file_prefix)

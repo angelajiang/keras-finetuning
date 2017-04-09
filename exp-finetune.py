@@ -11,7 +11,11 @@ def accuracy_per_layer(config_file, dataset_name, dataset_dir, model_prefix, max
     decay = str(config_parserr.get('finetune-config', 'decay'))
     lr = str(config_parserr.get('finetune-config', 'learning-rate'))
     output_dir = str(config_parserr.get('finetune-config', 'output_dir'))
-    output_file = output_dir + dataset_name + "-epochs" + nb_epoch + "-" + optimizer_name + "-decay" + decay + "-lr" + lr + "-" + str(max_layers) + ":" + str(layers_stride)
+    data_augmentation = bool(int(config_parserr.get('finetune-config', 'data_augmentation')))
+    if (data_augmentation):
+        output_file = output_dir + dataset_name + "-epochs" + nb_epoch + "-" + optimizer_name + "-decay" + decay + "-lr" + lr + "-data_aug-" + str(max_layers) + ":" + str(layers_stride)
+    else:
+        output_file = output_dir + dataset_name + "-epochs" + nb_epoch + "-" + optimizer_name + "-decay" + decay + "-lr" + lr + "-" + str(max_layers) + ":" + str(layers_stride)
     print output_file
     f = open(output_file, 'w', 0)
     for num_training_layers in range(layers_stride, max_layers + layers_stride, layers_stride):
