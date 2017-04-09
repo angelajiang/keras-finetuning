@@ -14,7 +14,12 @@ if __name__ == "__main__":
 
     optimizers = ["adam", "adamax", "rmsprop"]
     decays_gen = frange(0, .5, .05)
+
+    optimizers = ["adam"]
+    decays_gen = frange(0, .5, .5)
+
     decays = list(decays_gen)
+    decays = [0.25, 0.5]
     
     for optimizer in optimizers:
         for decay in decays:

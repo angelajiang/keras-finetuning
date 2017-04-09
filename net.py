@@ -7,8 +7,8 @@ from keras.layers import Dense, GlobalAveragePooling2D
 
 
 # create the base pre-trained model
-def build_model(nb_classes):
-    base_model = InceptionV3(weights='imagenet', include_top=False)
+def build_model(nb_classes, weights="imagenet"):
+    base_model = InceptionV3(weights=weights, include_top=False)
 
     # add a global spatial average pooling layer
     x = base_model.output

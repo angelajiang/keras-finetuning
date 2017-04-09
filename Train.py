@@ -40,6 +40,15 @@ class Train:
         model_dir = str(config_parserr.get('top-layer-config', 'model_dir'))
         outfile_dir = str(config_parserr.get('top-layer-config', 'outfile_dir'))
 
+        self.weights = str(config_parserr.get('top-layer-config', 'weights'))
+        if self.weights == "imagenet":
+            self.weights = "imagenet"
+            weights_name= "imagenet"
+        else:
+            self.weights = None
+            weights_name= "random"
+        
+
         if optimizer_name == "adam":
             self.optimizer = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=decay)
         elif optimizer_name == "adamax":
@@ -54,8 +63,9 @@ class Train:
             print "[ERROR] Didn't recognize optimizer", optimizer_name
 	    sys.exit(-1)
 
-        self.model_file_prefix = model_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay)
-        self.outfile = outfile_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay)
+        self.model_file_prefix = model_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay) + "-" + weights_name
+
+        self.outfile = outfile_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay) + "-" + weights_name
         print self.outfile
 
         self.init_dataset()
@@ -139,7 +149,7 @@ class Train:
         if (not os.path.isfile(model_file)):
             print "Cached model file does not exist"
 
-            model = net.build_model(self.nb_classes)
+            model = net.build_model(self.nb_classes, self.weights)
             model.compile(optimizer=self.optimizer, loss='categorical_crossentropy', metrics=["accuracy"])
 
             # train the model on the new data for a few epochs
@@ -155,7 +165,7 @@ class Train:
                                  shuffle=False)
 
                 acc = self.evaluate(model)
-                iters = i * self.nb_epoch_batch_size
+                iters = (i+1) * self.nb_epoch_batch_size
                 line = str(iters) + "," + str(acc) + "\n"
                 print line
                 f.write(line)

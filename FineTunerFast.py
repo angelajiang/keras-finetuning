@@ -39,9 +39,15 @@ class FineTunerFast:
         self.num_mega_epochs = int(config_parserr.get('finetune-config', 'num_mega_epochs'))
         self.data_augmentation = bool(int(config_parserr.get('finetune-config', 'data_augmentation')))
         self.heavy_augmentation = bool(int(config_parserr.get('finetune-config', 'heavy_augmentation')))
+        self.weights = str(config_parserr.get('finetune-config', 'weights'))
         optimizer_name = str(config_parserr.get('finetune-config', 'optimizer'))
         decay = float(config_parserr.get('finetune-config', 'decay'))
         lr = float(config_parserr.get('finetune-config', 'learning-rate'))                          # Should be low for finetuning
+
+        if self.weights == "imagenet":
+            self.weights = "imagenet"
+        else:
+            self.weights = None
         
         if optimizer_name == "adam":
             self.optimizer = Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=decay)
@@ -122,7 +128,7 @@ class FineTunerFast:
         model_file = self.model_file_prefix + ".h5"
         if (not os.path.isfile(model_file)):
             print "[WARNING] Generating new model"
-            model = net.build_model(self.nb_classes)
+            model = net.build_model(self.nb_classes, self.weights)
 
         else:
             print "Load model from cached files"
