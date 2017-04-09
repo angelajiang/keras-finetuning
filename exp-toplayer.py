@@ -12,8 +12,10 @@ if __name__ == "__main__":
     nb_epoch = int(nb_epoch)
     nb_epoch_batch_size = int(nb_epoch_batch_size)
 
-    optimizers = ["adamax", "nadam", "rmsprop", "sgd"]
-    decays = frange(0, .5, .05)
+    optimizers = ["adam", "adamax", "rmsprop"]
+    decays_gen = frange(0, .5, .05)
+    decays = list(decays_gen)
+    
     for optimizer in optimizers:
         for decay in decays:
             print "----------------------", optimizer, decay, "----------------------"
