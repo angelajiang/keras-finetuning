@@ -14,6 +14,8 @@ from collections import defaultdict
 # https://github.com/tensorflow/tensorflow/issues/1541
 import scipy.misc
 
+import CustomCallbacks
+import keras
 from keras.preprocessing.image import ImageDataGenerator
 from keras.optimizers import SGD, Adam, Nadam, RMSprop, Adamax
 from keras import backend as K
@@ -23,7 +25,7 @@ import dataset
 
 class FineTunerFast:
 
-    def __init__(self, config_file_path, data_directory, model_file_prefix):
+    def __init__(self, config_file_path, data_directory, model_file_prefix, history_file_prefix):
 
         np.random.seed(1337)
 
@@ -32,6 +34,7 @@ class FineTunerFast:
 
         self.data_directory = data_directory
         self.model_file_prefix = model_file_prefix
+        self.history_file_prefix = history_file_prefix
 
         self.n = int(config_parserr.get('finetune-config', 'n'))
         self.batch_size = int(config_parserr.get('finetune-config', 'batch_size'))
@@ -126,6 +129,7 @@ class FineTunerFast:
 
     def init_model(self):
         model_file = self.model_file_prefix + ".h5"
+        print model_file
         if (not os.path.isfile(model_file)):
             print "[WARNING] Generating new model"
             model = net.build_model(self.nb_classes, self.weights)
@@ -158,6 +162,7 @@ class FineTunerFast:
 
     def finetune(self, num_train):
 
+
         # at this point, the top layers are well trained and we can start fine-tuning
         # convolutional layers from inception V3. We will freeze the bottom N layers
         # and train the remaining top layers.
@@ -183,6 +188,14 @@ class FineTunerFast:
         # we train our model again (this time fine-tuning the top 2 inception blocks
         # alongside the top Dense layers
 
+        # Instantiate a callback that records intermediate accuracy into history_file_prefix
+
+        history = CustomCallbacks.LossHistory(self.history_file_prefix + "-" + str(num_train))
+        callbacks = [
+            keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=0, verbose=1, mode='auto'),
+            history
+        ]
+
         if self.data_augmentation:
             for i in range(1, self.num_mega_epochs + 1):
                 print "mega-epoch %d/%d" % (i, self.num_mega_epochs)
@@ -190,8 +203,10 @@ class FineTunerFast:
                         samples_per_epoch=self.X_train.shape[1],
                         nb_epoch=self.nb_epoch,
                         validation_data=self.datagen.flow(self.X_test, self.Y_test, batch_size=self.batch_size),
+                        callbacks=callbacks,
                         nb_val_samples=self.X_test.shape[0]
                         )
+
         else:
             for i in range(1, self.num_mega_epochs + 1):
                 print "mega-epoch %d/%d" % (i, self.num_mega_epochs)
@@ -200,6 +215,8 @@ class FineTunerFast:
                 loss = self.model.fit(self.X_train, self.Y_train,
                                       batch_size=self.batch_size,
                                       nb_epoch=self.nb_epoch,
+                                      validation_split=0.1,
+                                      callbacks=callbacks,
                                       shuffle=False)
 
         accuracy = self.evaluate(self.model)
