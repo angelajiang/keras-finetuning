@@ -5,7 +5,7 @@ import sys
 def accuracy_per_layer(config_file, dataset_name, dataset_dir, model_prefix, max_layers, layers_stride):
     config_parserr = ConfigParser.RawConfigParser()   
     config_parserr.read(config_file)
-    nb_epoch = str(config_parserr.get('finetune-config', 'nb_epoch'))
+    max_nb_epoch = str(config_parserr.get('finetune-config', 'max_nb_epoch'))
     optimizer_name = str(config_parserr.get('finetune-config', 'optimizer'))
     decay = str(config_parserr.get('finetune-config', 'decay'))
     lr = str(config_parserr.get('finetune-config', 'learning-rate'))
@@ -17,27 +17,32 @@ def accuracy_per_layer(config_file, dataset_name, dataset_dir, model_prefix, max
     else:
         weights_name= "random"
     if (data_augmentation):
-        output_file = output_dir + dataset_name + "-epochs" + nb_epoch + "-" +  \
+        output_file = output_dir + dataset_name + "-maxNB" + max_nb_epoch + "-" +  \
                       optimizer_name + "-decay" + decay + "-lr" + lr + "-" + \
                       weights_name + "-data_aug-" + str(max_layers) + ":" + str(layers_stride)
-        history_file_prefix =  output_dir + "/intermediate/" + dataset_name + "-intermediate-" +  \
-                        optimizer_name + "-decay" + decay + "-lr" + lr + "-" + weights_name + "-data_aug-"
+        history_file =  output_dir + "/intermediate/" + dataset_name + "-intermediate-" +  \
+                        optimizer_name + "-decay" + decay + "-lr" + lr + "-" + weights_name + "-data_aug"
     else:
-        output_file = output_dir + dataset_name + "-epochs" + nb_epoch + "-" + \
+        output_file = output_dir + dataset_name + "-maxNB" + max_nb_epoch + "-" + \
                       optimizer_name + "-decay" + decay + "-lr" + lr + "-" + \
                       weights_name + "-" + str(max_layers) + ":" + str(layers_stride) 
-        history_file_prefix =  output_dir + "/intermediate/" + dataset_name + "-intermediate-" +  \
+        history_file =  output_dir + "/intermediate/" + dataset_name + "-intermediate-" +  \
                         optimizer_name + "-decay" + decay + "-lr" + lr + "-" +  weights_name
 
     print output_file
+    print history_file
     f = open(output_file, 'w', 0)
+    # Truncate log file
+    f2 = open(history_file, 'w', 0)
+    f2.close()
     for num_training_layers in range(0, max_layers + layers_stride, layers_stride):
-        ft_obj = ft.FineTunerFast(config_file, dataset_dir, model_prefix, history_file_prefix)
+        ft_obj = ft.FineTunerFast(config_file, dataset_dir, model_prefix, history_file)
         print "[experiments] ================= Finetunning", num_training_layers, "layers ================= "
         acc = ft_obj.finetune(num_training_layers)
+        num_epochs = ft_obj.history.num_epochs
         acc = str.format("{0:.4f}", acc)
-        line = str(num_training_layers) + "," + str(acc) + "\n"
-        print "[RESULT] Num fine-tuned layers: ", num_training_layers, " accuracy: ", acc
+        line = str(num_training_layers) + "," + str(acc) + "," + str(num_epochs) + "\n"
+        print "[RESULT] Num fine-tuned layers: ", num_training_layers, " accuracy: ", acc, " num_epochs: " , num_epochs
         f.write(line)
         f.flush()
     f.close()
