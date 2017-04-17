@@ -3,7 +3,6 @@ import FineTunerFast as ft
 import sys
 
 def accuracy_per_layer(config_file, dataset_name, dataset_dir, model_prefix, max_layers, layers_stride):
-    ft_obj = ft.FineTunerFast(config_file, dataset_dir, model_prefix)
     config_parserr = ConfigParser.RawConfigParser()   
     config_parserr.read(config_file)
     nb_epoch = str(config_parserr.get('finetune-config', 'nb_epoch'))
@@ -23,7 +22,8 @@ def accuracy_per_layer(config_file, dataset_name, dataset_dir, model_prefix, max
         output_file = output_dir + dataset_name + "-epochs" + nb_epoch + "-" + optimizer_name + "-decay" + decay + "-lr" + lr + "-" + weights_name + "-" + str(max_layers) + ":" + str(layers_stride) 
     print output_file
     f = open(output_file, 'w', 0)
-    for num_training_layers in range(layers_stride, max_layers + layers_stride, layers_stride):
+    for num_training_layers in range(0, max_layers + layers_stride, layers_stride):
+        ft_obj = ft.FineTunerFast(config_file, dataset_dir, model_prefix)
         print "[experiments] ================= Finetunning", num_training_layers, "layers ================= "
         acc = ft_obj.finetune(num_training_layers)
         acc = str.format("{0:.4f}", acc)
