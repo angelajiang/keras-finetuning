@@ -48,6 +48,8 @@ class Train:
             self.weights = None
             weights_name= "random"
         
+        # sets self.dataset.datagen, self.dataset.X_train, self.dataset.Y_train, self.dataset.X_test, self.dataset.Y_test
+        self.dataset = DataSet.DataSet(data_directory, self.n)
 
         if optimizer_name == "adam":
             self.optimizer = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=decay)
@@ -68,77 +70,21 @@ class Train:
         self.outfile = outfile_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay) + "-" + weights_name
         print self.outfile
 
-        self.init_dataset()
-
-    def init_dataset(self):
-
-        X, y, tags = dataset.dataset(self.data_directory, self.n)
-        self.nb_classes = len(tags)
-
-        sample_count = len(y)
-        train_size = sample_count * 4 // 5
-        X_train = X[:train_size]
-        y_train = y[:train_size]
-        Y_train = np_utils.to_categorical(y_train, self.nb_classes)
-        X_test  = X[train_size:]
-        y_test  = y[train_size:]
-        Y_test = np_utils.to_categorical(y_test, self.nb_classes)
-
-        X_train = [x.reshape(224, 224, 3) for x in X_train]
-        X_test = [x.reshape(224, 224, 3) for x in X_test]
-
-        if self.heavy_augmentation:
-            datagen = ImageDataGenerator(
-                featurewise_center=False,
-                samplewise_center=False,
-                featurewise_std_normalization=False,
-                samplewise_std_normalization=False,
-                zca_whitening=False,
-                rotation_range=45,
-                width_shift_range=0.25,
-                height_shift_range=0.25,
-                horizontal_flip=True,
-                vertical_flip=False,
-                zoom_range=0.5,
-                channel_shift_range=0.5,
-                fill_mode='nearest')
-        else:
-            datagen = ImageDataGenerator(
-                featurewise_center=False,
-                samplewise_center=False,
-                featurewise_std_normalization=False,
-                samplewise_std_normalization=False,
-                zca_whitening=False,
-                rotation_range=0,
-                width_shift_range=0.125,
-                height_shift_range=0.125,
-                horizontal_flip=True,
-                vertical_flip=False,
-                fill_mode='nearest')
-
-        self.X_train = np.array(X_train)
-        self.X_test = np.array(X_test)
-        self.Y_train = Y_train
-        self.Y_test = Y_test
-        self.y_train = y_train
-        self.y_test = y_test
-        self.tags = tags
-
     def evaluate(self, model):
-        Y_pred = model.predict(self.X_test, batch_size=self.batch_size)
+        Y_pred = model.predict(self.dataset.X_test, batch_size=self.batch_size)
         y_pred = np.argmax(Y_pred, axis=1)
 
-        accuracy = float(np.sum(self.y_test==y_pred)) / len(self.y_test)
+        accuracy = float(np.sum(self.dataset.y_test==y_pred)) / len(self.dataset.y_test)
         print "accuracy:", accuracy
         
-        confusion = np.zeros((self.nb_classes, self.nb_classes), dtype=np.int32)
-        for (predicted_index, actual_index, image) in zip(y_pred, self.y_test, self.X_test):
+        confusion = np.zeros((self.dataset.nb_classes, self.dataset.nb_classes), dtype=np.int32)
+        for (predicted_index, actual_index, image) in zip(y_pred, self.dataset.y_test, self.dataset.X_test):
             confusion[predicted_index, actual_index] += 1
         
         print "rows are predicted classes, columns are actual classes"
-        for predicted_index, predicted_tag in enumerate(self.tags):
+        for predicted_index, predicted_tag in enumerate(self.dataset.tags):
             print predicted_tag[:7],
-            for actual_index, actual_tag in enumerate(self.tags):
+            for actual_index, actual_tag in enumerate(self.dataset.tags):
                 print "\t%d" % confusion[predicted_index, actual_index],
         return accuracy
 
@@ -149,7 +95,7 @@ class Train:
         if (not os.path.isfile(model_file)):
             print "Cached model file does not exist"
 
-            model = net.build_model(self.nb_classes, self.weights)
+            model = net.build_model(self.dataset.nb_classes, self.weights)
             model.compile(optimizer=self.optimizer, loss='categorical_crossentropy', metrics=["accuracy"])
 
             # train the model on the new data for a few epochs
@@ -157,11 +103,11 @@ class Train:
             num_training_batchs = self.nb_epoch // self.nb_epoch_batch_size
 
             for i in range(num_training_batchs):
-                loss = model.fit(self.X_train, self.Y_train,
+                loss = model.fit(self.dataset.X_train, self.dataset.Y_train,
                                  initial_epoch=0,
                                  batch_size=self.batch_size,
                                  nb_epoch=self.nb_epoch_batch_size,
-                                 validation_data=(self.X_test, self.Y_test),
+                                 validation_data=(self.dataset.X_test, self.dataset.Y_test),
                                  shuffle=False)
 
                 acc = self.evaluate(model)
@@ -171,7 +117,7 @@ class Train:
                 f.write(line)
                 f.flush()
 
-            net.save(model, self.tags, self.model_file_prefix)
+            net.save(model, self.dataset.tags, self.model_file_prefix)
 
         else:
             print "Model is already cached"
