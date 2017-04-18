@@ -21,13 +21,17 @@ def accuracy_per_layer(config_file, dataset_name, dataset_dir, model_prefix, max
                       optimizer_name + "-decay" + decay + "-lr" + lr + "-" + \
                       weights_name + "-data_aug-" + str(max_layers) + ":" + str(layers_stride)
         history_file =  output_dir + "/intermediate/" + dataset_name + "-intermediate-" +  \
-                        optimizer_name + "-decay" + decay + "-lr" + lr + "-" + weights_name + "-data_aug"
+                        "-maxNB" + max_nb_epoch + "-" + \
+                        optimizer_name + "-decay" + decay + "-lr" + lr + "-" + \
+                        weights_name + "-data_aug-" + str(max_layers) + ":" + str(layers_stride)
     else:
         output_file = output_dir + dataset_name + "-maxNB" + max_nb_epoch + "-" + \
                       optimizer_name + "-decay" + decay + "-lr" + lr + "-" + \
                       weights_name + "-" + str(max_layers) + ":" + str(layers_stride) 
         history_file =  output_dir + "/intermediate/" + dataset_name + "-intermediate-" +  \
-                        optimizer_name + "-decay" + decay + "-lr" + lr + "-" +  weights_name
+                        "-maxNB" + max_nb_epoch + "-" + \
+                        optimizer_name + "-decay" + decay + "-lr" + lr + "-" +  \
+                        weights_name + "-" + str(max_layers) + ":" + str(layers_stride)
 
     print output_file
     print history_file

@@ -37,8 +37,6 @@ class FineTunerFast:
 
         self.history_file = history_file
         # Truncate log file
-        f = open(self.history_file, 'w', 0)
-        f.close()
 
         self.n = int(config_parserr.get('finetune-config', 'n'))
         self.batch_size = int(config_parserr.get('finetune-config', 'batch_size'))
