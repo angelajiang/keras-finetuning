@@ -21,7 +21,7 @@ def accuracy_per_layer(config_file, dataset_name, dataset_dir, model_prefix, max
                       optimizer_name + "-decay" + decay + "-lr" + lr + "-" + \
                       weights_name + "-data_aug-" + str(max_layers) + ":" + str(layers_stride)
         history_file =  output_dir + "/intermediate/" + dataset_name + "-intermediate-" +  \
-                        "-maxNB" + max_nb_epoch + "-" + \
+                        "maxNB" + max_nb_epoch + "-" + \
                         optimizer_name + "-decay" + decay + "-lr" + lr + "-" + \
                         weights_name + "-data_aug-" + str(max_layers) + ":" + str(layers_stride)
     else:
@@ -29,7 +29,7 @@ def accuracy_per_layer(config_file, dataset_name, dataset_dir, model_prefix, max
                       optimizer_name + "-decay" + decay + "-lr" + lr + "-" + \
                       weights_name + "-" + str(max_layers) + ":" + str(layers_stride) 
         history_file =  output_dir + "/intermediate/" + dataset_name + "-intermediate-" +  \
-                        "-maxNB" + max_nb_epoch + "-" + \
+                        "maxNB" + max_nb_epoch + "-" + \
                         optimizer_name + "-decay" + decay + "-lr" + lr + "-" +  \
                         weights_name + "-" + str(max_layers) + ":" + str(layers_stride)
 
@@ -40,6 +40,8 @@ def accuracy_per_layer(config_file, dataset_name, dataset_dir, model_prefix, max
     f2 = open(history_file, 'w', 0)
     f2.close()
     for num_training_layers in range(0, max_layers + layers_stride, layers_stride):
+        if num_training_layers == 0:
+            num_training_layers = 1
         ft_obj = ft.FineTunerFast(config_file, dataset_dir, model_prefix, history_file)
         print "[experiments] ================= Finetunning", num_training_layers, "layers ================= "
         acc = ft_obj.finetune(num_training_layers)

@@ -11,10 +11,10 @@ class LossHistory(keras.callbacks.Callback):
 
     def on_epoch_end(self, batch, logs={}):
         self.num_epochs += 1
-        acc = logs.get('acc')
-        acc = str.format("{0:.4f}", acc)
+        val_loss = logs.get('val_loss')
+        val_loss = str.format("{0:.4f}", val_loss)
         val_acc = logs.get('val_acc')
         val_acc = str.format("{0:.4f}", val_acc)
-        line = str(self.num_train) + "," + str(self.num_epochs) + "," + str(acc) + "," + str(val_acc) + "\n"
+        line = str(self.num_train) + "," + str(self.num_epochs) + "," + str(val_loss) + "," + str(val_acc) + "\n"
         self.f.write(line)
         self.f.flush()
