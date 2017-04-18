@@ -1,3 +1,4 @@
+import DataSet
 import ConfigParser
 import json
 import net
@@ -36,7 +37,6 @@ class FineTunerFast:
         self.model_file_prefix = model_file_prefix
 
         self.history_file = history_file
-        # Truncate log file
 
         self.n = int(config_parserr.get('finetune-config', 'n'))
         self.batch_size = int(config_parserr.get('finetune-config', 'batch_size'))
@@ -48,6 +48,9 @@ class FineTunerFast:
         optimizer_name = str(config_parserr.get('finetune-config', 'optimizer'))
         decay = float(config_parserr.get('finetune-config', 'decay'))
         lr = float(config_parserr.get('finetune-config', 'learning-rate'))                          # Should be low for finetuning
+
+        # sets self.dataset.datagen, self.dataset.X_train, self.dataset.Y_train, self.dataset.X_test, self.dataset.Y_test
+        self.dataset = DataSet.DataSet(data_directory, self.n)
 
         if self.weights == "imagenet":
             self.weights = "imagenet"
@@ -68,66 +71,9 @@ class FineTunerFast:
             print "[ERROR] Didn't recognize optimizer", optimizer_name
 	    sys.exit(-1)
 
-        self.init_dataset()     # sets self.datagen, self.X_train, self.Y_train, self.X_test, self.Y_test
         self.init_model()       # sets self.model, self.tags
 
         self.config_parser = config_parserr
-
-    def init_dataset(self):
-
-        X, y, tags = dataset.dataset(self.data_directory, self.n)
-        self.tags = tags
-        self.nb_classes = len(tags)
-
-        sample_count = len(y)
-        train_size = sample_count * 4 // 5
-        X_train = X[:train_size]
-        y_train = y[:train_size]
-        Y_train = np_utils.to_categorical(y_train, self.nb_classes)
-        X_test  = X[train_size:]
-        y_test  = y[train_size:]
-        Y_test = np_utils.to_categorical(y_test, self.nb_classes)
-
-        X_train = [x.reshape(224, 224, 3) for x in X_train]
-        X_test = [x.reshape(224, 224, 3) for x in X_test]
-
-        if self.heavy_augmentation:
-            datagen = ImageDataGenerator(
-                featurewise_center=False,
-                samplewise_center=False,
-                featurewise_std_normalization=False,
-                samplewise_std_normalization=False,
-                zca_whitening=False,
-                rotation_range=45,
-                width_shift_range=0.25,
-                height_shift_range=0.25,
-                horizontal_flip=True,
-                vertical_flip=False,
-                zoom_range=0.5,
-                channel_shift_range=0.5,
-                fill_mode='nearest')
-        else:
-            datagen = ImageDataGenerator(
-                featurewise_center=False,
-                samplewise_center=False,
-                featurewise_std_normalization=False,
-                samplewise_std_normalization=False,
-                zca_whitening=False,
-                rotation_range=0,
-                width_shift_range=0.125,
-                height_shift_range=0.125,
-                horizontal_flip=True,
-                vertical_flip=False,
-                fill_mode='nearest')
-
-        datagen.fit(X_train)
-
-        self.X_train = np.array(X_train)
-        self.X_test = np.array(X_test)
-        self.Y_train = Y_train
-        self.Y_test = Y_test
-        self.y_test = y_test
-        self.datagen = datagen
 
     def init_model(self):
         model_file = self.model_file_prefix + ".h5"
@@ -145,25 +91,24 @@ class FineTunerFast:
         self.model = model
 
     def evaluate(self, model):
-        Y_pred = model.predict(self.X_test, batch_size=self.batch_size)
+        Y_pred = model.predict(self.dataset.X_test, batch_size=self.batch_size)
         y_pred = np.argmax(Y_pred, axis=1)
 
-        accuracy = float(np.sum(self.y_test==y_pred)) / len(self.y_test)
+        accuracy = float(np.sum(self.dataset.y_test==y_pred)) / len(self.dataset.y_test)
         print "accuracy:", accuracy
         
-        confusion = np.zeros((self.nb_classes, self.nb_classes), dtype=np.int32)
-        for (predicted_index, actual_index, image) in zip(y_pred, self.y_test, self.X_test):
+        confusion = np.zeros((self.dataset.nb_classes, self.dataset.nb_classes), dtype=np.int32)
+        for (predicted_index, actual_index, image) in zip(y_pred, self.dataset.y_test, self.dataset.X_test):
             confusion[predicted_index, actual_index] += 1
         
         print "rows are predicted classes, columns are actual classes"
-        for predicted_index, predicted_tag in enumerate(self.tags):
+        for predicted_index, predicted_tag in enumerate(self.dataset.tags):
             print predicted_tag[:7],
-            for actual_index, actual_tag in enumerate(self.tags):
+            for actual_index, actual_tag in enumerate(self.dataset.tags):
                 print "\t%d" % confusion[predicted_index, actual_index],
         return accuracy
 
     def finetune(self, num_train):
-
 
         # at this point, the top layers are well trained and we can start fine-tuning
         # convolutional layers from inception V3. We will freeze the bottom N layers
@@ -198,15 +143,19 @@ class FineTunerFast:
             self.history
         ]
 
+        callbacks = [
+            self.history
+        ]
+
         if self.data_augmentation:
             for i in range(1, self.num_mega_epochs + 1):
                 print "mega-epoch %d/%d" % (i, self.num_mega_epochs)
-                self.model.fit_generator(self.datagen.flow(self.X_train, self.Y_train, batch_size=self.batch_size, shuffle=False),
-                        samples_per_epoch=self.X_train.shape[1],
+                self.model.fit_generator(self.datagen.flow(self.dataset.X_train, self.dataset.Y_train, batch_size=self.batch_size, shuffle=False),
+                        samples_per_epoch=self.dataset.X_train.shape[1],
                         nb_epoch=self.max_nb_epoch,
-                        validation_data=self.datagen.flow(self.X_test, self.Y_test, batch_size=self.batch_size),
+                        validation_data=self.datagen.flow(self.dataset.X_test, self.dataset.Y_test, batch_size=self.batch_size),
                         callbacks=callbacks,
-                        nb_val_samples=self.X_test.shape[0]
+                        nb_val_samples=self.dataset.X_test.shape[0]
                         )
 
         else:
@@ -214,7 +163,7 @@ class FineTunerFast:
                 print "mega-epoch %d/%d" % (i, self.num_mega_epochs)
 
                  #   # train the model on the new data for a few epochs
-                loss = self.model.fit(self.X_train, self.Y_train,
+                loss = self.model.fit(self.dataset.X_train, self.dataset.Y_train,
                                       batch_size=self.batch_size,
                                       nb_epoch=self.max_nb_epoch,
                                       validation_split=0.1,
