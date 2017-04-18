@@ -38,6 +38,7 @@ class TrainFull:
         self.batch_size = int(config_parserr.get('full-train-config', 'batch_size'))
         model_dir = str(config_parserr.get('full-train-config', 'model_dir'))
         outfile_dir = str(config_parserr.get('full-train-config', 'outfile_dir'))
+        data_augmentation = bool(int(config_parserr.get('full-train-config', 'data_augmentation')))
 
         self.dataset = DataSet.DataSet(data_directory, self.n)
 
@@ -63,9 +64,13 @@ class TrainFull:
             print "[ERROR] Didn't recognize optimizer", optimizer_name
 	    sys.exit(-1)
 
-        self.model_file_prefix = model_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay) + "-" + weights_name
+        if (data_augmentation):
+            self.model_file_prefix = model_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay) + "-" + weights_name + "-dataaug"
+            self.outfile = outfile_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay) + "-" + weights_name + "-dataaug"
+        else:
+            self.model_file_prefix = model_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay) + "-" + weights_name
+            self.outfile = outfile_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay) + "-" + weights_name
 
-        self.outfile = outfile_dir + "/" + dataset_name + "-nb" + str(nb_epoch) + ":" + str(nb_epoch_batch_size) + "-" + optimizer_name + "-decay" + str(decay) + "-" + weights_name
         print self.outfile
 
     def evaluate(self, model):
