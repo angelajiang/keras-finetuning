@@ -26,7 +26,7 @@ import dataset
 
 class FineTunerFast:
 
-    def __init__(self, config_file_path, data_directory, model_file_prefix, history_file):
+    def __init__(self, config_file_path, data_directory, model_file_prefix, history_file, patience):
 
         np.random.seed(1337)
 
@@ -37,6 +37,7 @@ class FineTunerFast:
         self.model_file_prefix = model_file_prefix
 
         self.history_file = history_file
+        self.patience = patience
 
         self.n = int(config_parserr.get('finetune-config', 'n'))
         self.batch_size = int(config_parserr.get('finetune-config', 'batch_size'))
@@ -44,6 +45,7 @@ class FineTunerFast:
         self.num_mega_epochs = int(config_parserr.get('finetune-config', 'num_mega_epochs'))
         self.data_augmentation = bool(int(config_parserr.get('finetune-config', 'data_augmentation')))
         self.heavy_augmentation = bool(int(config_parserr.get('finetune-config', 'heavy_augmentation')))
+        self.early_stop = bool(int(config_parserr.get('finetune-config', 'early_stop')))
         self.weights = str(config_parserr.get('finetune-config', 'weights'))
         optimizer_name = str(config_parserr.get('finetune-config', 'optimizer'))
         decay = float(config_parserr.get('finetune-config', 'decay'))
@@ -80,7 +82,7 @@ class FineTunerFast:
         print model_file
         if (not os.path.isfile(model_file)):
             print "[WARNING] Generating new model"
-            model = net.build_model(self.nb_classes, self.weights)
+            model = net.build_model(self.dataset.nb_classes, self.weights)
 
         else:
             print "Load model from cached files"
@@ -137,15 +139,12 @@ class FineTunerFast:
 
         # Instantiate a callback that records intermediate accuracy into history_file
 
-        self.history = CustomCallbacks.LossHistory(self.history_file, num_train)
-        callbacks = [
-            keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=0, verbose=1, mode='auto'),
-            self.history
-        ]
-
+        self.history = CustomCallbacks.LossHistory(self.history_file, num_train, self.dataset.X_test, self.dataset.Y_test)
         callbacks = [
             self.history
         ]
+        if self.early_stop:
+            callbacks.append(keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=self.patience, verbose=1, mode='auto'))
 
         if self.data_augmentation:
             for i in range(1, self.num_mega_epochs + 1):
