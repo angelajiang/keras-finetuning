@@ -1,5 +1,6 @@
-import TrainFull
 import sys
+sys.path.append('../util')
+import TrainFull
 
 def frange(x, y, jump):
   while x < y:

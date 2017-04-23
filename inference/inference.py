@@ -11,22 +11,19 @@ def build_model(nb_classes, weights="imagenet"):
     base_model = InceptionV3(weights=weights, include_top=False)
 
     # add a global spatial average pooling layer
-    x = base_model.output
-    x = GlobalAveragePooling2D()(x)
+    shared_output = base_model.output
+    x1 = GlobalAveragePooling2D()(shared_output)
+    x2 = GlobalAveragePooling2D()(shared_output)
     # let's add a fully-connected layer
-    x = Dense(1024, activation='relu')(x)
+    x1 = Dense(1024, activation='relu')(x1)
+    x2 = Dense(1024, activation='relu')(x2)
     # and a logistic layer
-    predictions = Dense(nb_classes, activation='softmax')(x)
+    predictions1 = Dense(nb_classes, activation='softmax')(x1)
+    predictions2 = Dense(nb_classes, activation='softmax')(x2)
 
     # this is the model we will train
-    model = Model(input=base_model.input, output=predictions)
+    model = Model(input=base_model.input, outputs=[predictions1, predictions2])
 
-    # first: train only the top layers (which were randomly initialized)
-    # i.e. freeze all convolutional InceptionV3 layers
-    for layer in base_model.layers:
-        layer.trainable = False
-
-    # compile the model (should be done *after* setting layers to non-trainable)
     print "starting model compile"
     compile(model)
     print "model compile done"

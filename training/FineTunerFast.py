@@ -1,3 +1,5 @@
+import sys
+sys.path.append('../util')
 import DataSet
 import ConfigParser
 import json
@@ -5,7 +7,6 @@ import net
 import numpy as np
 import pprint as pp
 import os.path
-import sys
 import time
 
 from collections import defaultdict

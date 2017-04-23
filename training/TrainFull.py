@@ -1,9 +1,10 @@
+import sys
+sys.path.append('../util')
 import DataSet
 import ConfigParser
 import json
 import numpy as np
 import os.path
-import sys
 
 from collections import defaultdict
 

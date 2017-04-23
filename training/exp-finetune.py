@@ -1,6 +1,7 @@
+import sys
+sys.path.append('../util')
 import ConfigParser
 import FineTunerFast as ft
-import sys
 
 def accuracy_per_layer(config_file, dataset_name, dataset_dir, model_prefix, max_layers, layers_stride, patience):
     config_parserr = ConfigParser.RawConfigParser()   
