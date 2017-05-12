@@ -1,0 +1,9 @@
+[top-layer-config]
+n = 224
+batch_size = 128
+nb_epoch = 30
+heavy_augmentation = 0
+data_augmentation = 0
+weights=imagenet
+model_dir=/users/ahjiang/src/keras-finetuning/models/v4/
+outfile_dir=/users/ahjiang/src/keras-finetuning/data/results/toplayer/v4/
